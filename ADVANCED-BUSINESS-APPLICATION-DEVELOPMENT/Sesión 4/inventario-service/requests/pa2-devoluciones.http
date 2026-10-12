@@ -1,0 +1,60 @@
+@baseUrl = http://localhost:8082/inventario-service/api/inventario
+@codigo = LAP-001
+
+### Consultar el producto antes de la devolución
+GET {{baseUrl}}/productos/codigo/{{codigo}}
+Accept: application/json
+
+
+### Caso válido: devolver dos unidades
+POST {{baseUrl}}/productos/codigo/{{codigo}}/devoluciones
+Content-Type: application/json
+Accept: application/json
+
+{
+  "cantidad": 2
+}
+
+
+### Cantidad igual a cero: debe responder 400
+POST {{baseUrl}}/productos/codigo/{{codigo}}/devoluciones
+Content-Type: application/json
+Accept: application/json
+
+{
+  "cantidad": 0
+}
+
+
+### Cantidad negativa: debe responder 400
+POST {{baseUrl}}/productos/codigo/{{codigo}}/devoluciones
+Content-Type: application/json
+Accept: application/json
+
+{
+  "cantidad": -2
+}
+
+
+### Cantidad ausente: debe responder 400
+POST {{baseUrl}}/productos/codigo/{{codigo}}/devoluciones
+Content-Type: application/json
+Accept: application/json
+
+{
+}
+
+
+### Código inexistente: debe responder 404
+POST {{baseUrl}}/productos/codigo/NO-EXISTE/devoluciones
+Content-Type: application/json
+Accept: application/json
+
+{
+  "cantidad": 2
+}
+
+
+### Consultar el producto después de las pruebas
+GET {{baseUrl}}/productos/codigo/{{codigo}}
+Accept: application/json
