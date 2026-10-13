@@ -1,0 +1,64 @@
+@baseUrl = http://localhost:8081/sistema-pedidos
+
+### Listar pedidos y verificar su estado
+GET {{baseUrl}}/api/v1/orders
+Accept: application/json
+
+
+### Listar anulaciones
+GET {{baseUrl}}/api/v1/anulaciones
+Accept: application/json
+
+
+### Caso válido: anular un pedido registrado
+POST {{baseUrl}}/api/v1/anulaciones
+Content-Type: application/json
+Accept: application/json
+
+{
+  "pedidoId": 1,
+  "motivo": "El cliente solicitó la cancelación."
+}
+
+
+### Caso duplicado: intentar anular nuevamente el mismo pedido
+POST {{baseUrl}}/api/v1/anulaciones
+Content-Type: application/json
+Accept: application/json
+
+{
+  "pedidoId": 1,
+  "motivo": "Segundo intento de anulación."
+}
+
+
+### Datos inválidos: identificador igual a cero
+POST {{baseUrl}}/api/v1/anulaciones
+Content-Type: application/json
+Accept: application/json
+
+{
+  "pedidoId": 0,
+  "motivo": "Prueba de validación."
+}
+
+
+### Pedido inexistente
+POST {{baseUrl}}/api/v1/anulaciones
+Content-Type: application/json
+Accept: application/json
+
+{
+  "pedidoId": 999999,
+  "motivo": "Prueba con un pedido inexistente."
+}
+
+
+### Datos inválidos: falta el identificador del pedido
+POST {{baseUrl}}/api/v1/anulaciones
+Content-Type: application/json
+Accept: application/json
+
+{
+  "motivo": "Solicitud sin pedidoId."
+}
