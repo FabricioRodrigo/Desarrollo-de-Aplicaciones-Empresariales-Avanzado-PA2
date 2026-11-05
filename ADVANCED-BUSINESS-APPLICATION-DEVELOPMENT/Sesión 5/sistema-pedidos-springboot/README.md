@@ -3,6 +3,7 @@
 > Proyecto académico evolutivo · **Desarrollo de Aplicaciones Empresariales Avanzado** · ISIL  
 > **Sesiones 7:** Spring MVC, seguridad web con Spring Security.
 > **Sesiones 9:** Persistencia de reportes con Spring JDBC.
+> **PA3:** búsqueda avanzada, clientes frecuentes, vista protegida y API JSON.
 
 Aplicación empresarial de referencia para estudiar la migración de **Jakarta EE/WildFly a Spring Boot**, la separación de responsabilidades, la integración HTTP con `inventario-service` y la protección de una aplicación web con **autenticación, autorización y CSRF**.
 
@@ -25,7 +26,8 @@ El proyecto conserva una interfaz **Spring MVC + JSP** y expone una **API JSON**
 11. [Persistencia, integración y transacciones](#11-persistencia-integración-y-transacciones)
 12. [Limitaciones y siguientes pasos](#12-limitaciones-y-siguientes-pasos)
 13. [Spring JDBC y reportes — Sesión 9](#13-spring-jdbc-y-reportes--sesión-9)
-14. [Referencias técnicas](#14-referencias-técnicas)
+14. [Ampliación PA3: consulta y supervisión](#14-ampliación-pa3-consulta-y-supervisión)
+15. [Referencias técnicas](#15-referencias-técnicas)
 
 ---
 
@@ -262,7 +264,15 @@ Iniciar `inventario-service` en WildFly y verificar que está accesible en `http
 
 ### 7.2 Preparar MySQL
 
-Crear la base `sistema_pedidos` y verificar las variables `DB_URL`, `DB_USERNAME` y `DB_PASSWORD`. H2 no se necesita para ejecutar la aplicación: queda restringido a la suite de pruebas.
+Ejecutar `database/Script_BD_usuario_MySql.sql` con una cuenta administradora de MySQL. El script crea la base académica `pedidosdb`, el usuario de laboratorio `spedidos_app` y sus permisos sobre esa base.
+
+La conexión es externalizable mediante `DB_URL`, `DB_USERNAME` y `DB_PASSWORD`. H2 no se necesita para ejecutar la aplicación: queda restringido a la suite de pruebas.
+
+```powershell
+$env:DB_URL = "jdbc:mysql://localhost:3306/pedidosdb?serverTimezone=America/Lima"
+$env:DB_USERNAME = "spedidos_app"
+$env:DB_PASSWORD = "<clave-de-laboratorio>"
+```
 
 ### 7.3 Compilar y ejecutar Sistema de Pedidos
 
@@ -289,6 +299,9 @@ mvn spring-boot:run
 - Login predeterminado de Spring Security: <http://localhost:8081/sistema-pedidos/login>
 - API de pedidos: <http://localhost:8081/sistema-pedidos/api/v1/orders>
 - Resumen: <http://localhost:8081/sistema-pedidos/api/v1/orders/resumen>
+- Reportes JSP: <http://localhost:8081/sistema-pedidos/reportes/pedidos>
+- Búsqueda avanzada JSON: <http://localhost:8081/sistema-pedidos/api/v1/pedidos/busqueda-avanzada?cliente=Ana&totalMinimo=100>
+- Clientes frecuentes JSON: <http://localhost:8081/sistema-pedidos/api/v1/pedidos/clientes-frecuentes?minPedidos=2>
 
 Primero se solicita autenticación. Luego, Spring Security aplica los permisos del usuario autenticado. H2 no forma parte del runtime normal: su dependencia tiene alcance `test` y se activa únicamente mediante el perfil de pruebas.
 
@@ -308,6 +321,9 @@ Los mappings se escriben **sin** el contexto; en el navegador o cliente HTTP se 
 | GET | `/api/v1/pedidos/estadisticas/resumen` | `PedidoReporteController` **[S09]** | **RMM 2:** JSON, `GET` y `200 OK`; `JdbcTemplate.queryForObject()`. |
 | GET | `/api/v1/pedidos?cliente=Ana` | `PedidoReporteController` **[S09]** | **RMM 1:** arreglo JSON sin `_links`; filtro mediante `NamedParameterJdbcTemplate`. |
 | GET | `/api/v1/pedidos/estadisticas/productos` | `PedidoReporteController` **[S09]** | **RMM 3:** HAL/HATEOAS; agrupación mediante `JdbcTemplate.query()`. |
+| GET | `/api/v1/pedidos/busqueda-avanzada?cliente=Ana&totalMinimo=100` | `PedidoReporteController` **[PA3]** | JSON de pedidos que cumplen cliente y total mínimo. |
+| GET | `/api/v1/pedidos/clientes-frecuentes?minPedidos=2` | `PedidoReporteController` **[PA3]** | JSON consolidado por cliente mediante `GROUP BY` y `HAVING`. |
+| GET | `/reportes/pedidos` | `PedidoReporteWebController` **[PA3]** | Vista JSP de consulta y supervisión. |
 | GET/POST | `/login` | Spring Security | Formulario de login y procesamiento de autenticación. |
 | POST | `/logout` | Spring Security | Cierre de sesión (requiere token CSRF válido). |
 
@@ -406,6 +422,7 @@ Ejecutar todos los tests:
 | `PedidoSecurityIntegrationTest` **[S07]** | Integración MVC con contexto Spring | Login requerido, autorización por roles, CSRF y acceso autenticado al resumen. |
 | `PedidoReporteControllerIntegrationTest` **[S09]** | Integración MVC + seguridad + H2 | Contratos HAL/HATEOAS, filtros por query parameter y retiro de la URI RPC `/buscar`. |
 | `PedidoReporteJdbcRepositoryTest` **[S09]** | Integración Spring Boot + H2 | Consultas agregadas, parámetros con nombre, `RowMapper` y `GROUP BY`. |
+| `PedidoReporteServiceImplTest` **[PA3]** | Unitaria con Mockito | Rechazo de parámetros inválidos sin consultar el repositorio. |
 | `SistemaPedidosSpringbootApplicationTests` | Contexto de Spring Boot | Carga del contexto de aplicación. |
 
 En las pruebas de seguridad se utiliza:
@@ -438,25 +455,24 @@ Las pruebas unitarias puras (`PedidoServiceImplTest`, `PedidoApiControllerTest`)
 La aplicación utiliza **MySQL** cuando se ejecuta normalmente. La conexión se externaliza para no fijar credenciales reales en el repositorio:
 
 ```properties
-spring.datasource.url=${DB_URL:jdbc:mysql://localhost:3306/sistema_pedidos?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=America/Lima}
-spring.datasource.username=${DB_USERNAME:root}
-spring.datasource.password=${DB_PASSWORD:}
+spring.datasource.url=${DB_URL:jdbc:mysql://localhost:3306/pedidosdb?serverTimezone=America/Lima}
+spring.datasource.username=${DB_USERNAME:spedidos_app}
+spring.datasource.password=${DB_PASSWORD:<clave-de-laboratorio>}
 ```
 
-Crear previamente la base de datos local, por ejemplo:
+Crear previamente la base y el usuario con:
 
-```sql
-CREATE DATABASE sistema_pedidos
-  CHARACTER SET utf8mb4
-  COLLATE utf8mb4_unicode_ci;
+```powershell
+mysql -u root -p
+SOURCE database/Script_BD_usuario_MySql.sql;
 ```
 
 En PowerShell pueden establecerse credenciales sin modificar `application.properties`:
 
 ```powershell
-$env:DB_URL = "jdbc:mysql://localhost:3306/sistema_pedidos?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=America/Lima"
-$env:DB_USERNAME = "root"
-$env:DB_PASSWORD = "<clave-local>"
+$env:DB_URL = "jdbc:mysql://localhost:3306/pedidosdb?serverTimezone=America/Lima"
+$env:DB_USERNAME = "spedidos_app"
+$env:DB_PASSWORD = "<clave-de-laboratorio>"
 ```
 
 ### H2 exclusivamente para pruebas
@@ -616,7 +632,42 @@ Para ejecutar toda la suite:
 
 > La sesión 9 no elimina ni sustituye `PedidoRepository`, `PedidoServiceImpl`, `PedidoController`, `PedidoApiController` ni la integración con `inventario-service`.
 
-## 14. Referencias técnicas
+## 14. Ampliación PA3: consulta y supervisión
+
+La PA3 añade dos consultas de solo lectura sin reemplazar el CRUD transaccional existente:
+
+- `buscarPedidosPorClienteYTotalMinimo(cliente, totalMinimo)` utiliza `NamedParameterJdbcTemplate`, parámetros con nombre y `PedidoRowMapper`, con resultados ordenados por identificador descendente.
+- `listarClientesFrecuentes(minPedidos)` utiliza `GROUP BY` y `HAVING`, y devuelve total de pedidos, unidades, importe acumulado y ticket promedio por cliente.
+
+Ambas operaciones pasan por `PedidoReporteController` o `PedidoReporteWebController`, reutilizan `PedidoReporteService` y delegan el SQL en `PedidoReporteJdbcRepository`. Los parámetros inválidos se rechazan en la capa Service y la API los traduce a HTTP 400 mediante `ProblemDetail`.
+
+Los roles `OPERADOR` y `CONSULTA` pueden consultar reportes. El registro mediante `POST /pedidos` sigue limitado a `OPERADOR` y conserva la protección CSRF.
+
+La arquitectura completa se documenta en `docs/arquitectura-pa3.md` y los cinco casos funcionales en `docs/guia-evidencias-pa3.md`.
+
+### Pruebas nuevas de PA3
+
+La ampliación incorpora ocho comprobaciones nuevas distribuidas entre repositorio JDBC, Service, REST y seguridad. Cubren los filtros combinados, el consolidado con `GROUP BY/HAVING`, parámetros inválidos, acceso autenticado y redirección del usuario anónimo. Toda la suite se ejecuta con:
+
+```powershell
+.\mvnw.cmd clean test
+```
+
+### Orden de arranque
+
+1. MySQL y la base `pedidosdb`.
+2. SQL Server y `inventario-service` en WildFly con Java 21.
+3. `sistema-pedidos-springboot` con las variables de conexión a MySQL.
+4. Navegador o cliente HTTP para las verificaciones funcionales.
+
+### Limitaciones de la ampliación
+
+- Los usuarios de laboratorio permanecen en memoria y no constituyen un sistema de identidad productivo.
+- JPA y Spring JDBC comparten el mismo `DataSource`, pero la reserva remota de inventario no forma parte de la transacción local de MySQL.
+- Los filtros de reporte son consultas síncronas y no implementan paginación para grandes volúmenes.
+- `ddl-auto=update` facilita el laboratorio; en producción debe sustituirse por migraciones versionadas.
+
+## 15. Referencias técnicas
 
 - [Spring Framework — Web MVC](https://docs.spring.io/spring-framework/reference/web/webmvc.html)
 - [Spring Framework — HTTP Message Conversion](https://docs.spring.io/spring-framework/reference/web/webmvc/message-converters.html)
