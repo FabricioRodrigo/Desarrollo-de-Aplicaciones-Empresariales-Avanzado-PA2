@@ -4,6 +4,8 @@ import com.isil.edu.pe.spedidos.entity.Pedido;
 import com.isil.edu.pe.spedidos.service.domain.ProductoVendido;
 import com.isil.edu.pe.spedidos.service.domain.ResumenPedidos;
 import java.util.List;
+import com.isil.edu.pe.spedidos.service.domain.ClienteFrecuente;
+import java.math.BigDecimal;
 
 public interface PedidoReporteService {
 
@@ -12,5 +14,14 @@ public interface PedidoReporteService {
   List<Pedido> buscarPorCliente(String cliente);
 
   List<ProductoVendido> listarProductosMasVendidos();
+
+  List<Pedido> buscarPedidosPorClienteYTotalMinimo(
+          String cliente,
+          BigDecimal totalMinimo
+  );
+
+  List<ClienteFrecuente> listarClientesFrecuentes(
+          int minPedidos
+  );
 
 }

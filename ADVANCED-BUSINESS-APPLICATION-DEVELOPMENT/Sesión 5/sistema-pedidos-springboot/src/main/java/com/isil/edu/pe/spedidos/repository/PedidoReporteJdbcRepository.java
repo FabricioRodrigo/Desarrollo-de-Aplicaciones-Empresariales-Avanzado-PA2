@@ -10,6 +10,7 @@ import java.util.Map;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
+import com.isil.edu.pe.spedidos.repository.projection.ClienteFrecuenteProjection;
 
 /**
  * Repositorio de consultas y reportes implementado
@@ -150,6 +151,67 @@ public class PedidoReporteJdbcRepository {
             )
     );
   }
+    /** Busca pedidos por coincidencia parcial del cliente y total mínimo */
+    public List<Pedido> buscarPedidosPorClienteYTotalMinimo(
+            String cliente,
+            BigDecimal totalMinimo
+    ) {
+        String sql = """
+      SELECT %s
+      FROM pedido
+      WHERE LOWER(cliente) LIKE LOWER(:cliente)
+        AND total >= :totalMinimo
+      ORDER BY id DESC
+      """.formatted(COLUMNAS_PEDIDO);
+
+        Map<String, Object> parametros = Map.of(
+                "cliente", "%" + cliente.trim() + "%",
+                "totalMinimo", totalMinimo
+        );
+
+        return namedParameterJdbcTemplate.query(
+                sql,
+                parametros,
+                pedidoRowMapper
+        );
+    }
+
+    /** Consolida los pedidos por cliente y aplica el umbral indicado */
+    public List<ClienteFrecuenteProjection> listarClientesFrecuentes(
+            int minPedidos
+    ) {
+        String sql = """
+      SELECT
+          cliente,
+          COUNT(*) AS total_pedidos,
+          COALESCE(SUM(cantidad), 0) AS total_unidades,
+          COALESCE(SUM(total), 0) AS importe_acumulado,
+          COALESCE(AVG(total), 0) AS ticket_promedio
+      FROM pedido
+      GROUP BY cliente
+      HAVING COUNT(*) >= :minPedidos
+      ORDER BY
+          total_pedidos DESC,
+          importe_acumulado DESC,
+          cliente ASC
+      """;
+
+        Map<String, Object> parametros = Map.of(
+                "minPedidos", minPedidos
+        );
+
+        return namedParameterJdbcTemplate.query(
+                sql,
+                parametros,
+                (rs, rowNum) -> new ClienteFrecuenteProjection(
+                        rs.getString("cliente"),
+                        rs.getLong("total_pedidos"),
+                        rs.getLong("total_unidades"),
+                        valorMonetario(rs.getBigDecimal("importe_acumulado")),
+                        valorMonetario(rs.getBigDecimal("ticket_promedio"))
+                )
+        );
+    }
 
   private BigDecimal valorMonetario(
       BigDecimal valor) {

@@ -7,6 +7,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -82,4 +84,36 @@ class PedidoSecurityIntegrationTest {
         .andExpect(jsonPath("$.totalPedidos").isNumber())
         .andExpect(jsonPath("$.totalUnidades").isNumber());
   }
+    @Test
+    @DisplayName("Allow CONSULTA role to access protected reports page")
+    void allowConsultaRoleToAccessProtectedReportsPage()
+            throws Exception {
+
+        // Arrange / Act
+        ResultActions response = mockMvc.perform(
+                get("/reportes/pedidos")
+                        .with(user("consulta").roles("CONSULTA"))
+        );
+
+        // Assert
+        response
+                .andExpect(status().isOk())
+                .andExpect(view().name("reportes-pedidos"))
+                .andExpect(model().attributeExists("resumen"));
+    }
+
+    @Test
+    @DisplayName("Redirect anonymous user when accessing protected reports page")
+    void redirectAnonymousUserWhenAccessingProtectedReportsPage()
+            throws Exception {
+
+        // Arrange / Act
+        ResultActions response = mockMvc.perform(
+                get("/reportes/pedidos")
+        );
+
+        // Assert
+        response
+                .andExpect(status().is3xxRedirection());
+    }
 }

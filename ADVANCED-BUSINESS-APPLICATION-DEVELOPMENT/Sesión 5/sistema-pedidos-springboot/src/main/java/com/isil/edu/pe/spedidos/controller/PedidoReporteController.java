@@ -16,6 +16,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import com.isil.edu.pe.spedidos.controller.dto.ClienteFrecuenteResponse;
+import java.math.BigDecimal;
 
 /**
  * Controlador REST para reportes de pedidos.
@@ -73,7 +75,41 @@ public class PedidoReporteController {
     );
     return ResponseEntity.ok(coleccion);
   }
+    @GetMapping(
+            value = "/busqueda-avanzada",
+            produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<List<PedidoResponse>> buscarPedidosPorClienteYTotalMinimo(
+            @RequestParam String cliente,
+            @RequestParam BigDecimal totalMinimo
+    ) {
+        List<PedidoResponse> pedidos =
+                reporteService.buscarPedidosPorClienteYTotalMinimo(
+                                cliente,
+                                totalMinimo
+                        )
+                        .stream()
+                        .map(PedidoResponse::from)
+                        .toList();
 
+        return ResponseEntity.ok(pedidos);
+    }
+
+    @GetMapping(
+            value = "/clientes-frecuentes",
+            produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<List<ClienteFrecuenteResponse>> listarClientesFrecuentes(
+            @RequestParam int minPedidos
+    ) {
+        List<ClienteFrecuenteResponse> clientes =
+                reporteService.listarClientesFrecuentes(minPedidos)
+                        .stream()
+                        .map(ClienteFrecuenteResponse::from)
+                        .toList();
+
+        return ResponseEntity.ok(clientes);
+    }
   private Link linkPedidos() {
     return Link.of(linkTo(PedidoReporteController.class).toUri() + "{?cliente}");
   }

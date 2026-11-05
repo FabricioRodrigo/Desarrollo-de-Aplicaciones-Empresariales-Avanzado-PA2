@@ -16,6 +16,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
+import com.isil.edu.pe.spedidos.repository.projection.ClienteFrecuenteProjection;
 
 @SpringBootTest
 @ActiveProfiles("test")
@@ -90,6 +91,60 @@ class PedidoReporteJdbcRepositoryTest {
     assertEquals(5L, productos.get(0).totalUnidades());
     assertEquals("LAP-001", productos.get(1).productoCodigo());
   }
+
+    @Test
+    @DisplayName("Return matching orders from advanced search when customer and minimum total match")
+    void returnMatchingOrdersFromAdvancedSearchWhenCustomerAndMinimumTotalMatch() {
+        // Arrange
+        String cliente = "Ana";
+        BigDecimal totalMinimo = new BigDecimal("1000.00");
+
+        // Act
+        List<Pedido> pedidos =
+                repository.buscarPedidosPorClienteYTotalMinimo(
+                        cliente,
+                        totalMinimo
+                );
+
+        // Assert
+        assertEquals(1, pedidos.size());
+        assertEquals("Ana Torres", pedidos.get(0).getCliente());
+        assertEquals(
+                0,
+                new BigDecimal("5000.00")
+                        .compareTo(pedidos.get(0).getTotal())
+        );
+    }
+
+    @Test
+    @DisplayName("Return consolidated customer from frequent customers when minimum orders are met")
+    void returnConsolidatedCustomerFromFrequentCustomersWhenMinimumOrdersAreMet() {
+        // Arrange
+        int minPedidos = 2;
+
+        // Act
+        List<ClienteFrecuenteProjection> clientes =
+                repository.listarClientesFrecuentes(minPedidos);
+
+        // Assert
+        assertEquals(1, clientes.size());
+
+        ClienteFrecuenteProjection ana = clientes.get(0);
+
+        assertEquals("Ana Torres", ana.cliente());
+        assertEquals(2L, ana.totalPedidos());
+        assertEquals(4L, ana.totalUnidades());
+        assertEquals(
+                0,
+                new BigDecimal("5100.00")
+                        .compareTo(ana.importeAcumulado())
+        );
+        assertEquals(
+                0,
+                new BigDecimal("2550.00")
+                        .compareTo(ana.ticketPromedio())
+        );
+    }
 
   private void insertarPedido(
       String cliente,

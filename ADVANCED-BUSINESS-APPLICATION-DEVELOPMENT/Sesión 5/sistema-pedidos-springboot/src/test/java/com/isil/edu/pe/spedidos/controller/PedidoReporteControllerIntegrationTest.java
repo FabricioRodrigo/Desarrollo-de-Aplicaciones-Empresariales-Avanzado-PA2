@@ -89,6 +89,86 @@ class PedidoReporteControllerIntegrationTest {
             .with(user("consulta").roles("CONSULTA")))
         .andExpect(status().isNotFound());
   }
+    @Test
+    @DisplayName("Return filtered orders when advanced search parameters are valid")
+    void returnFilteredOrdersWhenAdvancedSearchParametersAreValid()
+            throws Exception {
+        mockMvc.perform(
+                        get("/api/v1/pedidos/busqueda-avanzada")
+                                .param("cliente", "Ana")
+                                .param("totalMinimo", "1000.00")
+                                .with(user("consulta").roles("CONSULTA"))
+                )
+                .andExpect(status().isOk())
+                .andExpect(
+                        content().contentTypeCompatibleWith(
+                                MediaType.APPLICATION_JSON
+                        )
+                )
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].cliente").value("Ana Torres"))
+                .andExpect(jsonPath("$[0].total").value(5000.00));
+    }
+
+    @Test
+    @DisplayName("Return consolidated customers when minimum orders are met")
+    void returnConsolidatedCustomersWhenMinimumOrdersAreMet()
+            throws Exception {
+
+        insertarPedido(
+                "Ana Torres",
+                "MOU-001",
+                "Mouse",
+                "100.00",
+                1,
+                "100.00"
+        );
+
+        mockMvc.perform(
+                        get("/api/v1/pedidos/clientes-frecuentes")
+                                .param("minPedidos", "2")
+                                .with(user("consulta").roles("CONSULTA"))
+                )
+                .andExpect(status().isOk())
+                .andExpect(
+                        content().contentTypeCompatibleWith(
+                                MediaType.APPLICATION_JSON
+                        )
+                )
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].cliente").value("Ana Torres"))
+                .andExpect(jsonPath("$[0].totalPedidos").value(2))
+                .andExpect(jsonPath("$[0].totalUnidades").value(3))
+                .andExpect(jsonPath("$[0].importeAcumulado").value(5100.00))
+                .andExpect(jsonPath("$[0].ticketPromedio").value(2550.00));
+    }
+
+    @Test
+    @DisplayName("Return bad request when minimum orders parameter is invalid")
+    void returnBadRequestWhenMinimumOrdersParameterIsInvalid()
+            throws Exception {
+        mockMvc.perform(
+                        get("/api/v1/pedidos/clientes-frecuentes")
+                                .param("minPedidos", "0")
+                                .with(user("consulta").roles("CONSULTA"))
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(
+                        content().contentTypeCompatibleWith(
+                                MediaType.APPLICATION_PROBLEM_JSON
+                        )
+                )
+                .andExpect(
+                        jsonPath("$.title")
+                                .value("Parámetros inválidos")
+                )
+                .andExpect(
+                        jsonPath("$.detail")
+                                .value(
+                                        "La cantidad mínima de pedidos debe ser mayor o igual a uno."
+                                )
+                );
+    }
 
   private void insertarPedido(
       String cliente,
